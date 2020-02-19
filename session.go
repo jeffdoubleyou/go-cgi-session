@@ -135,20 +135,30 @@ func (s *CGISession) Driver(sessionDriver ...driver) {
 
 func (s *CGISession) New(sessionId ...string) interface{} {
     s.Driver()
-    if len(sessionId) == 1 {
+    if len(sessionId) > 0 {
+        var newSessionId string
+        if len(sessionId) == 2 {
+            newSessionId = sessionId[1]
+        }
         data, err := s.driver.Retrieve(sessionId[0])
         if err != nil {
-            s.createSession()
+            s.createSession(newSessionId)
         } else {
             _, err := s.Thaw(data)
             if err != nil {
-                s.createSession()
+                s.createSession(newSessionId)
             }
             if s.IsExpired() == true {
                 s.deleteSession(sessionId[0])
-                s.createSession()
+                s.createSession(newSessionId)
             } else {
-                s.sessionId = sessionId[0]
+                if newSessionId != "" {
+                    s.createSession(newSessionId)
+                    s.deleteSession(sessionId[0])
+                    s.Flush()
+                } else {
+                    s.sessionId = sessionId[0]
+                }
             }
         }
     } else {
@@ -190,8 +200,12 @@ func (s *CGISession) deleteSession(sessionId string) (bool, error) {
     return s.driver.Remove(sessionId)
 }
 
-func (s *CGISession) createSession() string {
-    s.sessionId = s.GenerateSessionId()
+func (s *CGISession) createSession(sessionId ...string) string {
+    if len(sessionId) == 1 {
+        s.sessionId = sessionId[0]
+    } else {
+        s.sessionId = s.GenerateSessionId()
+    }
     now := time.Now().Unix()
     s.params = make(map[string]interface{})
     s.ParamInt64("_SESSION_CTIME", now)
@@ -228,6 +242,18 @@ func (s *CGISession) ParamInt64(name string, value ...int64) int64 {
     }
 
     return s.params[name].(int64)
+}
+
+func (s *CGISession) GetParam(name interface{}) interface{} {
+    if v, ok := s.params[name.(string)]; ok {
+        return v
+    }
+    return nil
+}
+
+func (s *CGISession) SetParam(name, value interface{}) error {
+    s.params[name.(string)] = value
+    return nil
 }
 
 func (s *CGISession) ParamFloat64(name string, value ...float64) float64 {
