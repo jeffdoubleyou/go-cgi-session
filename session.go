@@ -45,7 +45,7 @@ type CGISession struct {
     params map[string]interface{}
 }
 
-func New(props ...map[string]interface{}) *CGISession {
+func Session(props ...map[string]interface{}) *CGISession {
     sessionConfig := &config{driver: "memcached", id: "md5", serializer: "datadumper", expireSeconds: 86400, cookieName: "CGISESSID", cookiePath: "/"}
     if len(props) > 0 {
         if props[0]["driverConfig"] != nil {
@@ -133,7 +133,7 @@ func (s *CGISession) Driver(sessionDriver ...driver) {
     }
 }
 
-func (s *CGISession) Load(sessionId ...string) interface{} {
+func (s *CGISession) New(sessionId ...string) interface{} {
     s.Driver()
     if len(sessionId) == 1 {
         data, err := s.driver.Retrieve(sessionId[0])
@@ -155,6 +155,35 @@ func (s *CGISession) Load(sessionId ...string) interface{} {
         s.createSession()
     }
     return s.params 
+}
+
+func (s *CGISession) Load(sessionId string) interface{} {
+    s.Driver()
+    data, err := s.driver.Retrieve(sessionId)
+    if err != nil {
+        return nil
+    } else {
+        _, err := s.Thaw(data)
+        if err != nil {
+            return nil
+        }
+        if s.IsExpired() == true {
+            s.deleteSession(sessionId)
+            return nil
+        } else {
+            s.sessionId = sessionId
+        }
+    }
+    return s.params 
+}
+
+func (s *CGISession) Exists(sessionId string) bool {
+    s.Driver()
+    _, err := s.driver.Retrieve(sessionId)
+    if err != nil {
+        return false
+    }
+    return true
 }
 
 func (s *CGISession) deleteSession(sessionId string) (bool, error) {

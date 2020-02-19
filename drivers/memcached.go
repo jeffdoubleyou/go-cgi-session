@@ -31,7 +31,6 @@ func (d *MemcachedDriver) Retrieve(session string) (data []byte, err error) {
     if err == nil {
         data = item.Value
     }
-    fmt.Printf("Retrieve session: %s - %v\n", session, data)
     return data, err
 }
 
