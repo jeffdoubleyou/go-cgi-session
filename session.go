@@ -3,9 +3,9 @@ package cgisession
 import (
     "time"
     "strconv"
-    "go-cgi-session/drivers"
-    "go-cgi-session/id"
-    "go-cgi-session/serializers"
+    "github.com/jeffdoubleyou/go-cgi-session/drivers"
+    "github.com/jeffdoubleyou/go-cgi-session/id"
+    "github.com/jeffdoubleyou/go-cgi-session/serializers"
 )
 
 type config struct {
