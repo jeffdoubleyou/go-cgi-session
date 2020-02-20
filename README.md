@@ -29,7 +29,7 @@ import(
 )
 
 func main() {
-  beego.BConfig.WebConfig.Session.SessionProvider = "cgi"
+	beego.BConfig.WebConfig.Session.SessionProvider = "cgi"
 	beego.BConfig.WebConfig.Session.SessionProviderConfig = `{"driverConfig":{"servers":["10.64.98.74:11212"],"timeout":2}}`
 	beego.BConfig.WebConfig.Session.SessionName = "CGISESSID"
 
@@ -42,6 +42,8 @@ func main() {
 	}
 
 	beego.GlobalSessions, _ = session.NewManager("cgi", sessionConfig)
+	
+	beego.Run()
 }
 ```
 
