@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/bradfitz/gomemcache/memcache"
@@ -11,35 +12,29 @@ type MemcachedDriver struct {
 	client *memcache.Client
 }
 
-type MemcachedDriverConfig struct {
-	servers []string
-	timeout int
+type DriverConfig struct {
+	Servers []string
+	Timeout int
 }
 
-func Memcached(c interface{}) *MemcachedDriver {
-	driverConfig := &MemcachedDriverConfig{}
-	config := c.(map[string]interface{})
+func Memcached(c ...*DriverConfig) *MemcachedDriver {
+	var driverConfig *DriverConfig
 
-	if servers, ok := config["servers"]; ok {
-		driverConfig.servers = servers.([]string)
+	if len(c) == 1 && c[0] != nil {
+		driverConfig = c[0]
 	} else {
-		driverConfig.servers = []string{"127.0.0.1:11211"}
+		driverConfig = &DriverConfig{Servers: []string{"127.0.0.1:11211"}, Timeout: 0}
 	}
-
-	if timeout, ok := config["timeout"]; ok {
-		driverConfig.timeout = timeout.(int)
-	} else {
-		driverConfig.timeout = 0
-	}
-
-	client := memcache.New(driverConfig.servers...)
-	if driverConfig.timeout != 0 {
-		client.Timeout, _ = time.ParseDuration(fmt.Sprintf("%ds", driverConfig.timeout))
+	log.Printf("SERVER LIST: %v\n", driverConfig.Servers)
+	client := memcache.New(driverConfig.Servers...)
+	if driverConfig.Timeout != 0 {
+		client.Timeout, _ = time.ParseDuration(fmt.Sprintf("%ds", driverConfig.Timeout))
 	}
 	return &MemcachedDriver{client}
 }
 
 func (d *MemcachedDriver) Store(session string, params []byte) (store []byte, err error) {
+	log.Printf("Request to store session ID: %s\n******\n%v\n\n", session, params)
 	d.client.Set(&memcache.Item{Key: session, Value: params})
 	return store, err
 }

@@ -11,7 +11,7 @@ import (
 
 type CGISessionConfig struct {
 	Driver           string
-	DriverConfig     interface{}
+	DriverConfig     *drivers.DriverConfig
 	Id               string
 	IdConfig         interface{}
 	Serializer       string
@@ -128,6 +128,8 @@ func (s *CGISession) New(sessionId ...string) (ss *SessionStore) {
 		var newSessionId string
 		if len(sessionId) == 2 {
 			newSessionId = sessionId[1]
+		} else {
+			newSessionId = sessionId[0]
 		}
 		ss = s.Load(sessionId[0])
 		if ss == nil {
@@ -153,6 +155,7 @@ func (s *CGISession) New(sessionId ...string) (ss *SessionStore) {
 
 func (s *CGISession) Load(sessionId string) (ss *SessionStore) {
 	s.Driver()
+	ss = &SessionStore{}
 	data, err := s.driver.Retrieve(sessionId)
 	if err != nil {
 		return nil
@@ -165,9 +168,9 @@ func (s *CGISession) Load(sessionId string) (ss *SessionStore) {
 			s.deleteSession(sessionId)
 			return nil
 		} else {
+			ss.params = params
 			ss.session = s
 			ss.sessionId = sessionId
-			ss.params = params
 		}
 	}
 	return ss
@@ -188,7 +191,7 @@ func (s *CGISession) deleteSession(sessionId string) (bool, error) {
 
 func (s *CGISession) createSession(sessionId ...string) *SessionStore {
 	ss := &SessionStore{session: s}
-	if len(sessionId) == 1 {
+	if len(sessionId) == 1 && sessionId[0] != "" {
 		ss.sessionId = sessionId[0]
 	} else {
 		ss.sessionId = s.GenerateSessionId()

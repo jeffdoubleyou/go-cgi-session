@@ -3,7 +3,6 @@ package beegoSessionProvider
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 
@@ -47,33 +46,28 @@ func (s *SessionStore) SessionRelease(w http.ResponseWriter) {
 
 type CGIProvider struct {
 	maxlifetime int64
-	config      map[string]interface{}
+	config      *cgisession.CGISessionConfig
 	session     *cgisession.CGISession
-	test        string
 }
 
 func (p *CGIProvider) SessionInit(maxlifetime int64, config string) error {
 	p.maxlifetime = maxlifetime
-	var c interface{}
+	c := &cgisession.CGISessionConfig{}
 	err := json.Unmarshal([]byte(config), &c)
 	if err != nil {
 		return err
 	}
-	log.Printf("THE CONFIG IS HERE: %v\n\n", c)
-	p.config = c.(map[string]interface{})
-	p.test = "THIS IS A STRING"
+	p.config = c
+	p.session = cgisession.Session(p.config)
 	return nil
 }
 
 func (p *CGIProvider) SessionRead(sid string) (session.Store, error) {
-	log.Printf("Reading session now: %s\n\n", p.test)
-	log.Printf("#### THIS IS THE CONFIG ####\n%v\n########\n", p.config)
-	p.session = cgisession.Session(p.config)
-	if params := p.session.Load(sid); params == nil {
-		return nil, fmt.Errorf("Invalid session")
+	if s := p.session.New(sid); s == nil {
+		return nil, fmt.Errorf("Invalid session %s", sid)
+	} else {
+		return &SessionStore{sid: s.SessionId(), session: s}, nil
 	}
-	session := &SessionStore{sid: sid, session: p.session}
-	return session, nil
 }
 
 func (p *CGIProvider) SessionExist(sid string) bool {
@@ -84,14 +78,11 @@ func (p *CGIProvider) SessionExist(sid string) bool {
 }
 
 func (p *CGIProvider) SessionRegenerate(oldsid, sid string) (session.Store, error) {
-	if p.session == nil {
-		p.session = cgisession.Session(p.config)
-	}
-	if params := p.session.New(oldsid, sid); params == nil {
+	if s := p.session.New(oldsid, sid); s == nil {
 		return nil, fmt.Errorf("Invalid session")
+	} else {
+		return &SessionStore{sid: sid, session: s}, nil
 	}
-	session := &SessionStore{sid: sid, session: p.session}
-	return session, nil
 }
 
 func (p *CGIProvider) SessionDestroy(sid string) error {
