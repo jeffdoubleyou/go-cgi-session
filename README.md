@@ -8,11 +8,11 @@ It is *NOT* well documented at this time.
 
 ## Features
 
-### Drivers
+### Storage Drivers
 
 * Memcached
 
-### Storage
+### Serializers
 
 * Data::Dumper ( Default CGI )
 
