@@ -1,23 +1,25 @@
 package serializers
 
-import(
-    "encoding/json"
+import (
+	"encoding/json"
 )
-type DataDumperSerializer struct {
 
+type DataDumperConfig struct {
+	Indent bool
 }
 
-func DataDumper(config map[string]interface{}) *DataDumperSerializer {
-    return &DataDumperSerializer{}
+type DataDumperSerializer struct {
+}
+
+func DataDumper(config interface{}) *DataDumperSerializer {
+	return &DataDumperSerializer{}
 }
 
 func (s *DataDumperSerializer) Thaw(data []byte) (decoded interface{}, err error) {
-    err = json.Unmarshal(data, &decoded)
-    return
+	err = json.Unmarshal(data, &decoded)
+	return
 }
 
 func (s *DataDumperSerializer) Freeze(data interface{}) (encoded []byte, err error) {
-    return json.Marshal(data)
+	return json.Marshal(data)
 }
-
-

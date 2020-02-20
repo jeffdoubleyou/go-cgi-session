@@ -3,6 +3,7 @@ package beegoSessionProvider
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 
@@ -15,7 +16,7 @@ var cgipder = &CGIProvider{}
 type SessionStore struct {
 	sid     string
 	lock    sync.RWMutex
-	session *cgisession.CGISession
+	session *cgisession.SessionStore
 }
 
 func (s *SessionStore) Set(key, value interface{}) error {
@@ -48,6 +49,7 @@ type CGIProvider struct {
 	maxlifetime int64
 	config      map[string]interface{}
 	session     *cgisession.CGISession
+	test        string
 }
 
 func (p *CGIProvider) SessionInit(maxlifetime int64, config string) error {
@@ -57,12 +59,16 @@ func (p *CGIProvider) SessionInit(maxlifetime int64, config string) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("THE CONFIG IS HERE: %v\n\n", c)
 	p.config = c.(map[string]interface{})
+	p.test = "THIS IS A STRING"
 	return nil
 }
 
 func (p *CGIProvider) SessionRead(sid string) (session.Store, error) {
-	p.session = cgisession.Session()
+	log.Printf("Reading session now: %s\n\n", p.test)
+	log.Printf("#### THIS IS THE CONFIG ####\n%v\n########\n", p.config)
+	p.session = cgisession.Session(p.config)
 	if params := p.session.Load(sid); params == nil {
 		return nil, fmt.Errorf("Invalid session")
 	}
@@ -72,14 +78,14 @@ func (p *CGIProvider) SessionRead(sid string) (session.Store, error) {
 
 func (p *CGIProvider) SessionExist(sid string) bool {
 	if p.session == nil {
-		p.session = cgisession.Session()
+		p.session = cgisession.Session(p.config)
 	}
 	return p.session.Exists(sid)
 }
 
 func (p *CGIProvider) SessionRegenerate(oldsid, sid string) (session.Store, error) {
 	if p.session == nil {
-		p.session = cgisession.Session()
+		p.session = cgisession.Session(p.config)
 	}
 	if params := p.session.New(oldsid, sid); params == nil {
 		return nil, fmt.Errorf("Invalid session")
