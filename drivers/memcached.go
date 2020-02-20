@@ -2,7 +2,6 @@ package drivers
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/bradfitz/gomemcache/memcache"
@@ -25,7 +24,6 @@ func Memcached(c ...*DriverConfig) *MemcachedDriver {
 	} else {
 		driverConfig = &DriverConfig{Servers: []string{"127.0.0.1:11211"}, Timeout: 0}
 	}
-	log.Printf("SERVER LIST: %v\n", driverConfig.Servers)
 	client := memcache.New(driverConfig.Servers...)
 	if driverConfig.Timeout != 0 {
 		client.Timeout, _ = time.ParseDuration(fmt.Sprintf("%ds", driverConfig.Timeout))
@@ -34,7 +32,6 @@ func Memcached(c ...*DriverConfig) *MemcachedDriver {
 }
 
 func (d *MemcachedDriver) Store(session string, params []byte) (store []byte, err error) {
-	log.Printf("Request to store session ID: %s\n******\n%v\n\n", session, params)
 	d.client.Set(&memcache.Item{Key: session, Value: params})
 	return store, err
 }
