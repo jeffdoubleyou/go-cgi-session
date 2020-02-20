@@ -24,8 +24,9 @@ It is *NOT* well documented at this time.
 
 ```
 import(
-  _ "github.com/jeffdoubleyou/go-cgi-session/beegoSessionProvider"                                                             "github.com/astaxie/beego"
-  "github.com/astaxie/beego/session"
+	_ "github.com/jeffdoubleyou/go-cgi-session/beegoSessionProvider"
+	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/session"
 )
 
 func main() {
