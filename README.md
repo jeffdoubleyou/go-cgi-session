@@ -1,6 +1,8 @@
 # go-cgi-session
 Golang library for reading and writing sessions created with Perl CGI::Session
 
+[![GoDoc](https://godoc.org/github.com/jeffdoubleyou/go-cgi-session?status.svg)](https://godoc.org/github.com/jeffdoubleyou/go-cgi-session)
+
 ## Motivation
 I am working on a project that needs to maintain login sessions between a Perl CGI appliation and Beego API.  I could not find any existing modules to handle this, so I made this.
 
