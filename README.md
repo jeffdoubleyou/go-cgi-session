@@ -58,3 +58,6 @@ There is a limtation to the storage at the moment.  No complex objects can be st
 
 Since the project I'm working on uses only Memcached storage, this is all that I have built, but could easily add more.
 
+## License
+
+Licensed under the Apache Licence, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0.html).
