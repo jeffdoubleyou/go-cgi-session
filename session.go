@@ -9,6 +9,10 @@ import (
 	"github.com/jeffdoubleyou/go-cgi-session/serializers"
 )
 
+const (
+	VERSION = "0.1.1"
+)
+
 type CGISessionConfig struct {
 	Driver           string
 	DriverConfig     *drivers.DriverConfig
