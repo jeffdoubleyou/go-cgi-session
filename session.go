@@ -15,6 +15,8 @@
 package cgisession
 
 import (
+	"log"
+	"os"
 	"strconv"
 	"time"
 
@@ -35,6 +37,7 @@ type CGISessionConfig struct {
 	Serializer       string
 	SerializerConfig interface{}
 	ExpireSeconds    int64
+	IPMatch          bool
 }
 
 type driver interface {
@@ -70,7 +73,7 @@ func Session(config ...*CGISessionConfig) *CGISession {
 	if len(config) == 1 {
 		sessionConfig = config[0]
 	} else {
-		sessionConfig = &CGISessionConfig{Driver: "memcached", Id: "md5", Serializer: "datadumper", ExpireSeconds: 86400}
+		sessionConfig = &CGISessionConfig{Driver: "memcached", Id: "md5", Serializer: "datadumper", ExpireSeconds: 86400, IPMatch: false}
 	}
 	return &CGISession{config: sessionConfig, driver: nil, id: nil, serializer: nil}
 }
@@ -140,6 +143,7 @@ func (s *CGISession) Driver(sessionDriver ...driver) {
 	}
 }
 
+// Beego seems to insist on choosing it's own session ID, so we must accept a session ID here, although I don't fine this secure, since you could change someone's login to be pointed at your session information if you knew their session ID
 func (s *CGISession) New(sessionId ...string) (ss *SessionStore) {
 	s.Driver()
 	if len(sessionId) > 0 {
@@ -153,16 +157,15 @@ func (s *CGISession) New(sessionId ...string) (ss *SessionStore) {
 		if ss == nil {
 			ss = s.createSession(newSessionId)
 		} else {
-			if ss.IsExpired() == true {
+			// Replace session with new session ID
+			if newSessionId != sessionId[0] {
 				s.deleteSession(sessionId[0])
-				ss = s.createSession(newSessionId)
-			} else {
-				if newSessionId != "" {
-					ss = s.createSession(newSessionId)
-					s.deleteSession(sessionId[0])
-				} else {
-					ss.sessionId = sessionId[0]
-				}
+				ss.sessionId = newSessionId
+				now := time.Now().Unix()
+				ss.ParamInt64("_SESSION_CTIME", now)
+				ss.ParamInt64("_SESSION_ATIME", now)
+				ss.ParamInt64("_SESSION_ETIME", s.config.ExpireSeconds)
+				ss.Flush()
 			}
 		}
 	} else {
@@ -173,21 +176,25 @@ func (s *CGISession) New(sessionId ...string) (ss *SessionStore) {
 
 func (s *CGISession) Load(sessionId string) (ss *SessionStore) {
 	s.Driver()
-	ss = &SessionStore{}
+	ss = &SessionStore{session: s}
 	data, err := s.driver.Retrieve(sessionId)
 	if err != nil {
 		return nil
 	} else {
-		params, err := s.Thaw(data)
+		ss.params, err = s.Thaw(data)
 		if err != nil {
 			return nil
 		}
+		if ss.IPMatches() == false {
+			log.Printf("Deleteing session not matching the IP address")
+			s.deleteSession(sessionId)
+			return nil
+		}
 		if ss.IsExpired() == true {
+			log.Printf("Deleting expired session %s", sessionId)
 			s.deleteSession(sessionId)
 			return nil
 		} else {
-			ss.params = params
-			ss.session = s
 			ss.sessionId = sessionId
 		}
 	}
@@ -219,96 +226,119 @@ func (s *CGISession) createSession(sessionId ...string) *SessionStore {
 	ss.ParamInt64("_SESSION_CTIME", now)
 	ss.ParamInt64("_SESSION_ATIME", now)
 	ss.ParamInt64("_SESSION_ETIME", s.config.ExpireSeconds)
+	if ip := os.Getenv("REMOTE_ADDR"); ip != "" {
+		ss.ParamString("_SESSION_REMOTE_ADDR", ip)
+	}
 	ss.ParamString("_SESSION_ID", ss.sessionId)
 	ss.Flush()
 	return ss
 }
 
-func (s *SessionStore) SessionId() string {
-	return s.sessionId
+func (ss *SessionStore) SessionId() string {
+	return ss.sessionId
 }
 
-func (s *SessionStore) ParamInt(name string, value ...int) int {
-	if len(value) == 1 {
-		s.params[name] = value[0]
+// You must set REMOTE_ADDR environmental variable to make use of IP matching
+func (ss *SessionStore) IPMatches() bool {
+	// Just return true if we have not enabled IP matching
+	if ss.session.config.IPMatch == false {
+		log.Printf("IP Checking is disabled")
+		return true
 	}
-	if s.params[name] == nil {
+
+	if ip := os.Getenv("REMOTE_ADDR"); ip != "" {
+		log.Printf("Checking IP of client %s vs session %s", ip, ss.ParamString("_SESSION_REMOTE_ADDR"))
+		if ss.ParamString("_SESSION_REMOTE_ADDR") == ip {
+			return true
+		}
+		log.Printf("THE IP DOES NOT MATCH!\n")
+		return false
+	} else {
+		return true // We don't have the client IP address, so we will not verify it
+	}
+}
+
+func (ss *SessionStore) ParamInt(name string, value ...int) int {
+	if len(value) == 1 {
+		ss.params[name] = value[0]
+	}
+	if ss.params[name] == nil {
 		return 0
 	}
-	return s.params[name].(int)
+	return ss.params[name].(int)
 }
 
-func (s *SessionStore) ParamInt64(name string, value ...int64) int64 {
+func (ss *SessionStore) ParamInt64(name string, value ...int64) int64 {
 	if len(value) == 1 {
-		s.params[name] = value[0]
+		ss.params[name] = value[0]
 	}
 
-	switch s.params[name].(type) {
+	switch ss.params[name].(type) {
 	case nil:
 		return 0
 	case int64:
-		return s.params[name].(int64)
+		return ss.params[name].(int64)
 	case string:
-		i, _ := strconv.ParseInt(s.params[name].(string), 10, 64)
+		i, _ := strconv.ParseInt(ss.params[name].(string), 10, 64)
 		return i
 	case float64:
-		return int64(s.params[name].(float64))
+		return int64(ss.params[name].(float64))
 	}
 
-	return s.params[name].(int64)
+	return ss.params[name].(int64)
 }
 
-func (s *SessionStore) GetParam(name interface{}) interface{} {
-	if v, ok := s.params[name.(string)]; ok {
+func (ss *SessionStore) GetParam(name interface{}) interface{} {
+	if v, ok := ss.params[name.(string)]; ok {
 		return v
 	}
 	return nil
 }
 
-func (s *SessionStore) SetParam(name, value interface{}) error {
-	s.params[name.(string)] = value
+func (ss *SessionStore) SetParam(name, value interface{}) error {
+	ss.params[name.(string)] = value
 	return nil
 }
 
-func (s *SessionStore) ParamFloat64(name string, value ...float64) float64 {
+func (ss *SessionStore) ParamFloat64(name string, value ...float64) float64 {
 	if len(value) == 1 {
-		s.params[name] = value[0]
+		ss.params[name] = value[0]
 	}
-	if s.params[name] == nil {
+	if ss.params[name] == nil {
 		return 0
 	}
-	return s.params[name].(float64)
+	return ss.params[name].(float64)
 }
 
-func (s *SessionStore) ParamString(name string, value ...string) string {
+func (ss *SessionStore) ParamString(name string, value ...string) string {
 	if len(value) == 1 {
-		s.params[name] = value[0]
+		ss.params[name] = value[0]
 	}
-	if s.params[name] == nil {
+	if ss.params[name] == nil {
 		return ""
 	}
-	return s.params[name].(string)
+	return ss.params[name].(string)
 }
 
-func (s *SessionStore) ClearParam(name string) {
-	delete(s.params, name)
+func (ss *SessionStore) ClearParam(name string) {
+	delete(ss.params, name)
 }
 
-func (s *SessionStore) Flush() (bool, error) {
-	s.ParamInt64("_SESSION_ATIME", time.Now().Unix())
-	data, err := s.session.Freeze(s.params)
+func (ss *SessionStore) Flush() (bool, error) {
+	ss.ParamInt64("_SESSION_ATIME", time.Now().Unix())
+	data, err := ss.session.Freeze(ss.params)
 	if err != nil {
 		return false, err
 	}
-	_, err = s.session.driver.Store(s.sessionId, data)
+	_, err = ss.session.driver.Store(ss.sessionId, data)
 	if err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func (s *SessionStore) IsExpired() bool {
-	if (s.ParamInt64("_SESSION_ATIME") + s.ParamInt64("_SESSION_ETIME")) <= time.Now().Unix() {
+func (ss *SessionStore) IsExpired() bool {
+	if (ss.ParamInt64("_SESSION_ATIME") + ss.ParamInt64("_SESSION_ETIME")) <= time.Now().Unix() {
 		return true
 	}
 	return false

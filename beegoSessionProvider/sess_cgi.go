@@ -71,6 +71,7 @@ func (p *CGIProvider) SessionInit(maxlifetime int64, config string) error {
 	if err != nil {
 		return err
 	}
+	c.ExpireSeconds = maxlifetime
 	p.config = c
 	p.session = cgisession.Session(p.config)
 	return nil
