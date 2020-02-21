@@ -3,7 +3,6 @@ package beegoSessionProvider
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 
@@ -42,7 +41,6 @@ func (s *SessionStore) SessionID() string {
 }
 
 func (s *SessionStore) SessionRelease(w http.ResponseWriter) {
-	log.Printf("RESPONSE WRITER ##################################\n%v\n", w.Header.Get("Accept"))
 	s.session.Flush()
 }
 
