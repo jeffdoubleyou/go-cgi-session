@@ -1,0 +1,15 @@
+#!/bin/bash
+
+AUTHOR_NAME=$(git config --global user.name)
+AUTHOR_EMAIL=$(git config --global user.email)
+AUTHOR="$AUTHOR_NAME \\<$AUTHOR_EMAIL\\>"
+
+echo "AUTHOR: $AUTHOR"
+
+if [ -z $(which addlicense) ]; then
+    echo "Intalling addlicense from github.com/google/addlicense"
+    go get -u github.com/google/addlicense
+fi
+
+addlicense -c "$AUTHOR" -l apache -v *.go ./*/*.go
+
