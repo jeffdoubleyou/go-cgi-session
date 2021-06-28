@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"sync"
 
-	session "github.com/astaxie/beego/session"
+	session "github.com/beego/beego/v2/adapter/session"
 	cgisession "github.com/jeffdoubleyou/go-cgi-session"
 )
 
